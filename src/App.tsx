@@ -40,11 +40,15 @@ function App() {
       const now = new Date()
       const londonTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }))
       const targetTime = new Date(londonTime)
-      targetTime.setHours(21, 0, 0, 0) // 9 PM
+      targetTime.setHours(21, 15, 0, 0) // 9:15 PM
 
-      // If it's past 9 PM, set target to next day
+      // If it's past 9:15 PM, show "Pairs Generated" instead of countdown
       if (londonTime > targetTime) {
-        targetTime.setDate(targetTime.getDate() + 1)
+        if (!hasGenerated) {
+          generatePairs()
+        }
+        setTimeLeft("Pairs Generated")
+        return
       }
 
       const diff = targetTime.getTime() - londonTime.getTime()
@@ -72,7 +76,7 @@ function App() {
       <h1>Cardinal Pairing Generator</h1>
 
       <div className="timer-container">
-        <h2>Pairing at 9 PM BST</h2>
+        <h2>Pairing at 9:15 PM BST Today</h2>
         <div className="timer">{timeLeft}</div>
       </div>
 
