@@ -18,49 +18,116 @@ const BETTORS = [
   "Jane Y"
 ]
 
+// Top 13 cardinals based on the provided list
+const TOP_CARDINALS = [
+  "Pietro Parolin",
+  "Luis Antonio Tagle",
+  "Peter Turkson",
+  "Matteo Zuppi",
+  "Pierbattista Pizzaballa",
+  "Peter Erdo",
+  "Robert Sarah",
+  "Wilton Daniel Gregory",
+  "Mario Grech",
+  "Jean-Marc Aveline",
+  "Fridolin Ambongo Besungu",
+  "Fernando Filoni",
+  "Anders Arborelius"
+]
+
+// Helper function to safely access localStorage
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key)
+    } catch (error) {
+      console.error('Error accessing localStorage:', error)
+      return null
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value)
+    } catch (error) {
+      console.error('Error setting localStorage:', error)
+    }
+  }
+}
+
 function App() {
-  const [pairs, setPairs] = useState<{ bettor: string; cardinal: string }[]>([])
+  const [pairs, setPairs] = useState<{ bettor: string; cardinal: string }[]>(() => {
+    try {
+      const savedPairs = safeLocalStorage.getItem('cardinalPairs')
+      return savedPairs ? JSON.parse(savedPairs) : []
+    } catch (error) {
+      console.error('Error parsing saved pairs:', error)
+      return []
+    }
+  })
   const [timeLeft, setTimeLeft] = useState<string>('')
-  const [hasGenerated, setHasGenerated] = useState(false)
+  const [hasGenerated, setHasGenerated] = useState(() => {
+    const lastGenerated = safeLocalStorage.getItem('lastGeneratedDate')
+    return lastGenerated === '2025-05-05'
+  })
+  const [error, setError] = useState<string | null>(null)
 
   const generatePairs = () => {
     if (hasGenerated) return // Don't generate if we already have pairs
 
-    const shuffledCardinals = [...cardinals].sort(() => Math.random() - 0.5)
-    const newPairs = BETTORS.map((bettor, index) => ({
-      bettor,
-      cardinal: shuffledCardinals[index % shuffledCardinals.length].name
-    }))
-    setPairs(newPairs)
-    setHasGenerated(true)
+    try {
+      // Create a copy of top cardinals and shuffle them
+      const shuffledCardinals = [...TOP_CARDINALS]
+        .sort(() => Math.random() - 0.5)
+
+      // Create pairs ensuring each cardinal is used only once
+      const newPairs = BETTORS.map((bettor, index) => ({
+        bettor,
+        cardinal: shuffledCardinals[index]
+      }))
+
+      // Save pairs to localStorage
+      safeLocalStorage.setItem('cardinalPairs', JSON.stringify(newPairs))
+      safeLocalStorage.setItem('lastGeneratedDate', '2025-05-05')
+
+      setPairs(newPairs)
+      setHasGenerated(true)
+      setError(null)
+    } catch (error) {
+      console.error('Error generating pairs:', error)
+      setError('Failed to generate pairs. Please try refreshing the page.')
+    }
   }
 
   useEffect(() => {
     const updateTimer = () => {
-      const now = new Date()
-      const londonTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }))
-      const targetTime = new Date(londonTime)
-      targetTime.setHours(21, 15, 0, 0) // 9:15 PM
+      try {
+        const now = new Date()
+        const targetTime = new Date('2025-05-05T12:00:00+01:00') // 12:00 PM BST on May 5th, 2025
 
-      // If it's past 9:15 PM, show "Pairs Generated" instead of countdown
-      if (londonTime > targetTime) {
-        if (!hasGenerated) {
+        // If it's past target time, show "Pairs Generated" instead of countdown
+        if (now > targetTime) {
+          if (!hasGenerated) {
+            generatePairs()
+          }
+          setTimeLeft("Pairs Generated")
+          return
+        }
+
+        const diff = targetTime.getTime() - now.getTime()
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+        setTimeLeft(`${days}d ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+
+        // If it's time to generate pairs and we haven't generated yet
+        if (diff <= 0 && !hasGenerated) {
           generatePairs()
         }
-        setTimeLeft("Pairs Generated")
-        return
-      }
-
-      const diff = targetTime.getTime() - londonTime.getTime()
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-      setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
-
-      // If it's time to generate pairs and we haven't generated yet
-      if (diff <= 0 && !hasGenerated) {
-        generatePairs()
+      } catch (error) {
+        console.error('Error updating timer:', error)
+        setError('Error updating timer. Please refresh the page.')
       }
     }
 
@@ -75,8 +142,14 @@ function App() {
     <div className="app">
       <h1>Cardinal Pairing Generator</h1>
 
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+
       <div className="timer-container">
-        <h2>Pairing at 9:15 PM BST Today</h2>
+        <h2>Pairing at 12:00 PM BST on May 5th, 2025</h2>
         <div className="timer">{timeLeft}</div>
       </div>
 
