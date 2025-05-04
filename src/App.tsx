@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { cardinals } from './data/cardinals'
 import './App.css'
 
 const BETTORS = [
